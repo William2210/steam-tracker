@@ -12,6 +12,11 @@ Results are cached in cache.json so re-runs are fast and only re-check
 games after CACHE_MAX_AGE_HOURS. Use --refresh to force a full re-check.
 """
 
+"""Notes for self in order to ensure application will run across devices...
+
+To start the dashboard again, run uvicorn app:app --reload in the project folder and open http://localhost:8000
+.env is never uploaded, so each device needs its own copy. Copy your key across by hand, not through Git."""
+
 import json
 import os
 import sys
