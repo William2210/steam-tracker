@@ -1,0 +1,10 @@
+# Secrets - your Steam API key lives here
+.env
+
+# Personal achievement data, rebuilt by running the tracker
+cache.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc

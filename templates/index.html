@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam Achievements</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --border: #e2e5ea;
+    --text: #1b1f27; --muted: #667085;
+    --accent: #2f6fdb; --accent-soft: #e3ecfb;
+    --gold: #b7860b; --track: #e7e9ee;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1218; --surface: #171b23; --border: #262c38;
+      --text: #e6e9ef; --muted: #8b93a3;
+      --accent: #5b93f0; --accent-soft: #1d2b44;
+      --gold: #e2b33c; --track: #262c38;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -0.01em; }
+  h2 { font-size: 17px; margin: 40px 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .banner {
+    margin-top: 20px; padding: 12px 16px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid var(--border);
+  }
+  .banner.error { background: transparent; border-color: #d64545; color: #d64545; }
+  .banner .bar { margin-top: 8px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { font-size: 13px; color: var(--muted); }
+  .tile .value { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .sub { font-size: 13px; color: var(--muted); }
+
+  .bar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; min-width: 60px; }
+  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .bar.done > span { background: var(--gold); }
+
+  .closest { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .card img { display: block; width: 100%; aspect-ratio: 460 / 215; object-fit: cover; background: var(--track); }
+  .card .body { padding: 10px 12px 12px; }
+  .card .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+  .card .left { color: var(--text); font-weight: 600; }
+
+  .table-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .table-tools input, .table-tools select {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  .table-tools input { flex: 1 1 220px; }
+  .scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }
+  th[aria-sort="ascending"]::after { content: " ▲"; }
+  th[aria-sort="descending"]::after { content: " ▼"; }
+  td.num, th.num { text-align: right; }
+  td.name { white-space: normal; min-width: 200px; }
+  td.progress { width: 30%; min-width: 120px; }
+  .empty { text-align: center; padding: 60px 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Steam Achievements</h1>
+      <div class="muted small">
+        {% if updated_at %}Last checked <time data-ts="{{ updated_at }}"></time>{% else %}No data yet{% endif %}
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="update" title="Check new games and anything older than the cache limit">Update</button>
+      <button id="full" title="Re-check every game from scratch (slow)">Full re-check</button>
+    </div>
+  </header>
+
+  {% if not configured %}
+    <div class="banner error">STEAM_API_KEY or STEAM_ID is missing. Fill them in in <code>.env</code> and restart the server.</div>
+  {% endif %}
+  <div class="banner" id="progress" hidden>
+    <div id="progress-text">Starting…</div>
+    <div class="bar"><span id="progress-bar" style="width:0"></span></div>
+  </div>
+  <div class="banner error" id="error" hidden></div>
+
+  {% if summary %}
+    {% set s = summary %}
+    <section class="tiles">
+      <div class="tile">
+        <div class="label">Average completion</div>
+        <div class="value">{{ "%.1f"|format(s.steam_avg) }}%</div>
+        <div class="sub">as Steam calculates it</div>
+      </div>
+      <div class="tile">
+        <div class="label">Achievements unlocked</div>
+        <div class="value">{{ "{:,}".format(s.total_unlocked) }}</div>
+        <div class="sub">of {{ "{:,}".format(s.total_ach) }}{% if s.total_ach %} ({{ "%.1f"|format(100 * s.total_unlocked / s.total_ach) }}%){% endif %}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Perfect games</div>
+        <div class="value">{{ s.perfect }}</div>
+        <div class="sub">of {{ s.started }} started</div>
+      </div>
+      <div class="tile">
+        <div class="label">Not started</div>
+        <div class="value">{{ s.untouched }}</div>
+        <div class="sub">of {{ s.with_ach }} with achievements</div>
+      </div>
+      <div class="tile">
+        <div class="label">Games owned</div>
+        <div class="value">{{ s.owned }}</div>
+        <div class="sub">{{ s.owned - s.with_ach }} without achievements</div>
+      </div>
+    </section>
+
+    {% if s.in_progress %}
+      <h2>Closest to 100%</h2>
+      <section class="closest">
+        {% for g in s.in_progress[:show_top] %}
+          {% set p = 100 * g.unlocked / g.total %}
+          <article class="card">
+            <img loading="lazy" alt="" src="https://cdn.cloudflare.steamstatic.com/steam/apps/{{ g.appid }}/header.jpg"
+                 onerror="this.style.visibility='hidden'">
+            <div class="body">
+              <div class="name" title="{{ g.name }}">{{ g.name }}</div>
+              <div class="meta">
+                <span>{{ g.unlocked }}/{{ g.total }} · {{ "%.0f"|format(p) }}%</span>
+                <span class="left">{{ g.total - g.unlocked }} left</span>
+              </div>
+              <div class="bar"><span style="width:{{ p }}%"></span></div>
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <h2>All games</h2>
+    <div class="table-tools">
+      <input id="search" type="search" placeholder="Search games…" aria-label="Search games">
+      <select id="filter" aria-label="Filter games">
+        <option value="ach">With achievements</option>
+        <option value="progress">In progress</option>
+        <option value="perfect">Perfect</option>
+        <option value="untouched">Not started</option>
+        <option value="all">All games</option>
+      </select>
+    </div>
+    <div class="scroll">
+      <table id="games">
+        <thead>
+          <tr>
+            <th data-key="name">Game</th>
+            <th data-key="pct" class="progress">Progress</th>
+            <th data-key="done" class="num">Unlocked</th>
+            <th data-key="left" class="num">Left</th>
+            <th data-key="hours" class="num">Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in games %}
+            {% set p = (100 * g.unlocked / g.total) if g.total else -1 %}
+            <tr data-name="{{ g.name|lower }}" data-pct="{{ p }}" data-done="{{ g.unlocked }}"
+                data-left="{{ (g.total - g.unlocked) if g.total else -1 }}" data-hours="{{ g.playtime_hours }}"
+                data-state="{% if not g.total %}none{% elif g.unlocked == g.total %}perfect{% elif g.unlocked %}progress{% else %}untouched{% endif %}">
+              <td class="name">{{ g.name }}</td>
+              <td class="progress">
+                {% if g.total %}<div class="bar{% if g.unlocked == g.total %} done{% endif %}"><span style="width:{{ p }}%"></span></div>{% else %}<span class="muted small">No achievements</span>{% endif %}
+              </td>
+              <td class="num">{% if g.total %}{{ g.unlocked }}/{{ g.total }}{% else %}–{% endif %}</td>
+              <td class="num">{% if g.total %}{{ g.total - g.unlocked }}{% else %}–{% endif %}</td>
+              <td class="num">{{ g.playtime_hours }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty">
+      <p>No cached data yet.</p>
+      <p class="muted">Press <strong>Update</strong> to pull your library from Steam. The first run checks every game, so it can take a few minutes.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  // Show "last checked" in the viewer's local time
+  document.querySelectorAll("time[data-ts]").forEach(t => {
+    const d = new Date(t.dataset.ts * 1000);
+    t.textContent = d.toLocaleString();
+    t.dateTime = d.toISOString();
+  });
+
+  // ---- refresh + progress polling
+  const buttons = [document.getElementById("update"), document.getElementById("full")];
+  const progress = document.getElementById("progress");
+  const errorBox = document.getElementById("error");
+
+  function showStatus(s) {
+    if (s.error) {
+      errorBox.textContent = "Refresh failed: " + s.error;
+      errorBox.hidden = false;
+    }
+    progress.hidden = !s.running;
+    buttons.forEach(b => b.disabled = s.running);
+    if (s.running) {
+      document.getElementById("progress-text").textContent = s.total
+        ? `Checking ${s.done}/${s.total}: ${s.current}`
+        : "Fetching your library…";
+      document.getElementById("progress-bar").style.width =
+        (s.total ? 100 * s.done / s.total : 0) + "%";
+    }
+  }
+
+  async function poll() {
+    const s = await (await fetch("/status")).json();
+    showStatus(s);
+    if (s.running) setTimeout(poll, 1000);
+    else if (!s.error) location.reload();
+  }
+
+  async function startRefresh(full) {
+    errorBox.hidden = true;
+    const r = await fetch("/refresh?full=" + full, { method: "POST" });
+    const s = await r.json();
+    if (r.status === 400) { showStatus({ error: s.error }); return; }
+    showStatus(s);
+    poll();
+  }
+
+  buttons[0].onclick = () => startRefresh(false);
+  buttons[1].onclick = () => startRefresh(true);
+
+  // Pick up a refresh that's already running (e.g. after a page reload)
+  fetch("/status").then(r => r.json()).then(s => { if (s.running) { showStatus(s); poll(); } else if (s.error) showStatus(s); });
+
+  // ---- table search, filter and sort
+  const table = document.getElementById("games");
+  if (table) {
+    const tbody = table.tBodies[0];
+    const rows = [...tbody.rows];
+    const search = document.getElementById("search");
+    const filter = document.getElementById("filter");
+
+    function applyFilter() {
+      const q = search.value.trim().toLowerCase();
+      const f = filter.value;
+      rows.forEach(r => {
+        const st = r.dataset.state;
+        const okState = f === "all" || (f === "ach" ? st !== "none" : st === f);
+        r.hidden = !(okState && r.dataset.name.includes(q));
+      });
+    }
+    search.oninput = filter.onchange = applyFilter;
+    applyFilter();
+
+    table.querySelectorAll("th[data-key]").forEach(th => {
+      th.onclick = () => {
+        const key = th.dataset.key;
+        const asc = th.getAttribute("aria-sort") !== "ascending";
+        table.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
+        th.setAttribute("aria-sort", asc ? "ascending" : "descending");
+        const val = r => key === "name" ? r.dataset.name : parseFloat(r.dataset[key]);
+        rows.sort((a, b) => {
+          const x = val(a), y = val(b);
+          return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
+        });
+        rows.forEach(r => tbody.appendChild(r));
+      };
+    });
+  }
+</script>
+</body>
+</html>
