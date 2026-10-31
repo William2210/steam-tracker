@@ -17,6 +17,7 @@ games after CACHE_MAX_AGE_HOURS. Use --refresh to force a full re-check.
 To start the dashboard again, run uvicorn app:app --reload in the project folder and open http://localhost:8000
 .env is never uploaded, so each device needs its own copy. Copy your key across by hand, not through Git."""
 
+import html
 import json
 import os
 import sys
@@ -91,6 +92,117 @@ def get_achievements(steam_id, appid):
     return unlocked, len(achievements)
 
 
+# ---------------------------------------------------------------- one game in detail
+
+STORE_API = "https://store.steampowered.com/api/appdetails"
+
+
+def get_store_info(appid):
+    """Description, developer, genres etc. from the Steam store.
+
+    This is the store's own (keyless) endpoint, so the API key isn't sent.
+    Returns {} if the game has no store page (delisted, tools, etc.).
+    """
+    try:
+        r = requests.get(STORE_API, params={"appids": appid, "l": "english"}, timeout=10)
+        entry = r.json().get(str(appid)) or {}
+    except (requests.RequestException, ValueError):
+        return {}
+    if not entry.get("success"):
+        return {}
+    d = entry["data"]
+    return {
+        "name": d.get("name"),
+        "description": html.unescape(d.get("short_description") or ""),
+        "developers": d.get("developers") or [],
+        "publishers": d.get("publishers") or [],
+        "release_date": (d.get("release_date") or {}).get("date"),
+        "genres": [g["description"] for g in d.get("genres") or []],
+        "header_image": d.get("header_image"),
+    }
+
+
+class StoreRateLimited(Exception):
+    """The store API said slow down (HTTP 429)."""
+
+
+def get_metacritic(appid):
+    """Metacritic score for one game, or None if it doesn't have one.
+
+    Raises StoreRateLimited when the store wants us to back off, and
+    requests.RequestException on network trouble, so neither gets cached as
+    "no score".
+    """
+    r = requests.get(STORE_API, params={"appids": appid, "l": "english"}, timeout=10)
+    if r.status_code == 429:
+        raise StoreRateLimited()
+    r.raise_for_status()
+    entry = r.json().get(str(appid)) or {}
+    if not entry.get("success"):
+        return None
+    return (entry["data"].get("metacritic") or {}).get("score")
+
+
+def get_game_detail(steam_id, appid):
+    """Everything the game page shows: store info plus every achievement,
+    whether you've unlocked it (and when), and what % of players have it."""
+    appid = str(appid)
+
+    # 1. The game's achievement list: display names, descriptions, icons.
+    r = steam_get("ISteamUserStats/GetSchemaForGame/v2/", appid=appid, l="english")
+    schema = []
+    if r.status_code == 200:
+        schema = ((r.json().get("game") or {}).get("availableGameStats") or {}) \
+            .get("achievements") or []
+
+    # 2. Your progress on each one.
+    r = steam_get("ISteamUserStats/GetPlayerAchievements/v1/",
+                  steamid=steam_id, appid=appid, l="english")
+    if r.status_code == 403:
+        raise RuntimeError("Steam refused to share achievements. Set 'Game details' "
+                           "to Public in your Steam privacy settings.")
+    mine = {}
+    if r.status_code == 200:
+        for a in (r.json().get("playerstats") or {}).get("achievements") or []:
+            mine[a["apiname"]] = a
+
+    # 3. Global unlock rates, so you can spot the easy ones.
+    r = steam_get("ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/", gameid=appid)
+    rarity = {}
+    if r.status_code == 200:
+        for a in (r.json().get("achievementpercentages") or {}).get("achievements") or []:
+            rarity[a["name"]] = float(a["percent"])
+
+    # If the schema call failed, fall back to the names in your own progress.
+    if not schema:
+        schema = [{"name": k, "displayName": v.get("name", k),
+                   "description": v.get("description", "")} for k, v in mine.items()]
+
+    achievements = []
+    for a in schema:
+        p = mine.get(a["name"], {})
+        unlocked = bool(p.get("achieved"))
+        achievements.append({
+            "name": a.get("displayName") or a["name"],
+            # Hidden achievements leave description out of the schema;
+            # your own progress call usually still has it.
+            "description": a.get("description") or p.get("description") or "",
+            "hidden": bool(a.get("hidden")),
+            "unlocked": unlocked,
+            "unlocktime": p.get("unlocktime", 0) if unlocked else 0,
+            "icon": a.get("icon") if unlocked else (a.get("icongray") or a.get("icon")),
+            "global_pct": rarity.get(a["name"]),
+        })
+
+    return {
+        "appid": appid,
+        "store": get_store_info(appid),
+        "achievements": achievements,
+        "unlocked": sum(a["unlocked"] for a in achievements),
+        "total": len(achievements),
+    }
+
+
 # ---------------------------------------------------------------- caching
 
 def load_cache():
@@ -106,6 +218,50 @@ def save_cache(cache):
 def is_fresh(entry):
     age_hours = (time.time() - entry["fetched_at"]) / 3600
     return age_hours < CACHE_MAX_AGE_HOURS
+
+
+# Review scores don't change, so they live in their own file that a full
+# re-check leaves alone. appid -> score, or null for "checked, has none".
+METACRITIC_FILE = Path("metacritic.json")
+STORE_DELAY = 1.5  # the store allows roughly 200 requests per 5 minutes
+
+
+def load_metacritic():
+    if METACRITIC_FILE.exists():
+        return json.loads(METACRITIC_FILE.read_text(encoding="utf-8"))
+    return {}
+
+
+def save_metacritic(scores):
+    METACRITIC_FILE.write_text(json.dumps(scores, indent=2), encoding="utf-8")
+
+
+def fill_metacritic(games, on_progress=None):
+    """Look up Metacritic scores for any games we haven't checked yet.
+
+    Stops early if the store rate-limits us; the rest are picked up on the
+    next run.
+    """
+    scores = load_metacritic()
+    missing = [g for g in games if str(g["appid"]) not in scores]
+    try:
+        for i, game in enumerate(missing, start=1):
+            appid = str(game["appid"])
+            name = game.get("name", f"App {appid}")
+            print(f"\rMetacritic {i}/{len(missing)}: {name[:50]:<50}", end="", flush=True)
+            if on_progress:
+                on_progress(i, len(missing), f"Metacritic score for {name}")
+            try:
+                scores[appid] = get_metacritic(appid)
+            except requests.RequestException:
+                pass  # try again next run
+            time.sleep(STORE_DELAY)
+    except StoreRateLimited:
+        print("\rStore rate limit hit; remaining Metacritic scores will be fetched next run.")
+    finally:
+        save_metacritic(scores)
+    print("\r" + " " * 80 + "\r", end="")
+    return scores
 
 
 # ---------------------------------------------------------------- main logic
@@ -143,7 +299,10 @@ def collect(steam_id, refresh=False, on_progress=None):
 
     print("\r" + " " * 80 + "\r", end="")
     save_cache(cache)
-    return results
+
+    scores = fill_metacritic(games, on_progress)
+    return [{**entry, "metacritic": scores.get(str(game["appid"]))}
+            for game, entry in zip(games, results)]
 
 
 def pct(g):
@@ -163,11 +322,16 @@ def summarize(results):
     # Closest to 100%: fewest achievements left first, then highest %.
     in_progress.sort(key=lambda g: (g["total"] - g["unlocked"], -pct(g)))
 
+    # Perfect games, biggest achievement lists first: the most impressive to show off.
+    perfect_games = sorted((g for g in started if g["unlocked"] == g["total"]),
+                           key=lambda g: (-g["total"], g["name"].lower()))
+
     return {
         "owned": len(results),
         "with_ach": len(with_ach),
         "started": len(started),
-        "perfect": sum(g["unlocked"] == g["total"] for g in started),
+        "perfect": len(perfect_games),
+        "perfect_games": perfect_games,
         "untouched": len(with_ach) - len(started),
         "steam_avg": steam_avg,
         "total_unlocked": sum(g["unlocked"] for g in with_ach),

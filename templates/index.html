@@ -6,24 +6,20 @@
 <title>Steam Achievements</title>
 <style>
   :root {
-    --bg: #f4f5f7; --surface: #ffffff; --border: #e2e5ea;
-    --text: #1b1f27; --muted: #667085;
-    --accent: #2f6fdb; --accent-soft: #e3ecfb;
-    --gold: #b7860b; --track: #e7e9ee;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1218; --surface: #171b23; --border: #262c38;
-      --text: #e6e9ef; --muted: #8b93a3;
-      --accent: #5b93f0; --accent-soft: #1d2b44;
-      --gold: #e2b33c; --track: #262c38;
-      color-scheme: dark;
-    }
+    /* Steam's colours: navy background, pale blue-grey text, light blue accent */
+    --bg: #1b2838; --surface: #16202d; --border: #2a3f5a;
+    --text: #c7d5e0; --muted: #8f98a0;
+    --accent: #66c0f4; --accent-soft: #1f3a52; --on-accent: #0e141b;
+    --gold: #e4b84f; --gold-soft: #2d2a1b; --track: #0e1720;
+    --good: #a4d007; --bad: #e06464; --danger: #e06464;
+    --glow: #2a475e;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0; color: var(--text);
+    background: radial-gradient(ellipse 1400px 520px at 50% -160px, var(--glow), transparent) no-repeat, var(--bg);
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
@@ -38,14 +34,15 @@
     font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
   }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary { background: linear-gradient(to right, #47bfff 5%, #1a44c2 60%); border-color: transparent; color: #fff; }
+  button.primary:hover { filter: brightness(1.15); }
   button:disabled { opacity: .5; cursor: default; }
 
   .banner {
     margin-top: 20px; padding: 12px 16px; border-radius: 10px;
     background: var(--accent-soft); border: 1px solid var(--border);
   }
-  .banner.error { background: transparent; border-color: #d64545; color: #d64545; }
+  .banner.error { background: transparent; border-color: var(--danger); color: var(--danger); }
   .banner .bar { margin-top: 8px; }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
@@ -61,10 +58,26 @@
   .closest { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .card img { display: block; width: 100%; aspect-ratio: 460 / 215; object-fit: cover; background: var(--track); }
+  a.card { display: block; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  td.name a { color: inherit; text-decoration: none; }
+  td.name a:hover { color: var(--accent); text-decoration: underline; }
+  td.name a.rev { font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 0 7px; margin-left: 6px; white-space: nowrap; }
+  td.name a.rev:hover { text-decoration: none; color: var(--gold); }
   .card .body { padding: 10px 12px 12px; }
   .card .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card .meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
   .card .left { color: var(--text); font-weight: 600; }
+  .card.perfect { border-color: var(--gold-soft); }
+  a.card.perfect:hover { border-color: var(--gold); }
+  .card.perfect .left { color: var(--gold); }
+
+  .shelf-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 40px 0 12px; }
+  .shelf-head h2 { margin: 0; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 
   .table-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .table-tools input, .table-tools select {
@@ -83,6 +96,13 @@
   td.name { white-space: normal; min-width: 200px; }
   td.progress { width: 30%; min-width: 120px; }
   .empty { text-align: center; padding: 60px 16px; }
+  .scroll .empty { margin: 0; padding: 32px 16px; color: var(--muted); }
+  .pager { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .pager-buttons { display: flex; gap: 10px; align-items: center; font-variant-numeric: tabular-nums; }
+  .pager select {
+    font: inherit; padding: 4px 6px; border-radius: 6px; margin: 0 4px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -139,12 +159,19 @@
       </div>
     </section>
 
-    {% if s.in_progress %}
-      <h2>Closest to 100%</h2>
-      <section class="closest">
+    {% if s.in_progress or s.perfect_games %}
+      <div class="shelf-head">
+        <h2 id="shelf-title">Closest to 100%</h2>
+        <div class="seg" role="group" aria-label="Shelf">
+          <button type="button" data-shelf="closest" aria-pressed="true">Closest to 100%</button>
+          <button type="button" data-shelf="perfect" aria-pressed="false">Perfect games ({{ s.perfect }})</button>
+        </div>
+      </div>
+      <section class="closest" data-shelf="closest">
+        {% if not s.in_progress %}<p class="muted">Nothing in progress. Everything you've started is perfect!</p>{% endif %}
         {% for g in s.in_progress[:show_top] %}
           {% set p = 100 * g.unlocked / g.total %}
-          <article class="card">
+          <a class="card" href="/game/{{ g.appid }}">
             <img loading="lazy" alt="" src="https://cdn.cloudflare.steamstatic.com/steam/apps/{{ g.appid }}/header.jpg"
                  onerror="this.style.visibility='hidden'">
             <div class="body">
@@ -155,7 +182,24 @@
               </div>
               <div class="bar"><span style="width:{{ p }}%"></span></div>
             </div>
-          </article>
+          </a>
+        {% endfor %}
+      </section>
+      <section class="closest" data-shelf="perfect" hidden>
+        {% if not s.perfect_games %}<p class="muted">No perfect games yet. Check the other shelf for the closest ones.</p>{% endif %}
+        {% for g in s.perfect_games %}
+          <a class="card perfect" href="/game/{{ g.appid }}">
+            <img loading="lazy" alt="" src="https://cdn.cloudflare.steamstatic.com/steam/apps/{{ g.appid }}/header.jpg"
+                 onerror="this.style.visibility='hidden'">
+            <div class="body">
+              <div class="name" title="{{ g.name }}">{{ g.name }}</div>
+              <div class="meta">
+                <span>{{ g.total }} achievements · {{ g.playtime_hours }} h</span>
+                <span class="left">★ 100%</span>
+              </div>
+              <div class="bar done"><span style="width:100%"></span></div>
+            </div>
+          </a>
         {% endfor %}
       </section>
     {% endif %}
@@ -170,6 +214,16 @@
         <option value="untouched">Not started</option>
         <option value="all">All games</option>
       </select>
+      <select id="sort" aria-label="Sort games">
+        <option value="name:asc">Name (A–Z)</option>
+        <option value="name:desc">Name (Z–A)</option>
+        <option value="pct:desc">Completion (high–low)</option>
+        <option value="pct:asc">Completion (low–high)</option>
+        <option value="hours:desc">Time played (most)</option>
+        <option value="hours:asc">Time played (least)</option>
+        <option value="meta:desc">Metacritic (high–low)</option>
+        <option value="meta:asc">Metacritic (low–high)</option>
+      </select>
     </div>
     <div class="scroll">
       <table id="games">
@@ -180,6 +234,7 @@
             <th data-key="done" class="num">Unlocked</th>
             <th data-key="left" class="num">Left</th>
             <th data-key="hours" class="num">Hours</th>
+            <th data-key="meta" class="num">Metacritic</th>
           </tr>
         </thead>
         <tbody>
@@ -187,19 +242,30 @@
             {% set p = (100 * g.unlocked / g.total) if g.total else -1 %}
             <tr data-name="{{ g.name|lower }}" data-pct="{{ p }}" data-done="{{ g.unlocked }}"
                 data-left="{{ (g.total - g.unlocked) if g.total else -1 }}" data-hours="{{ g.playtime_hours }}"
+                data-meta="{{ g.metacritic if g.metacritic is not none else -1 }}"
                 data-state="{% if not g.total %}none{% elif g.unlocked == g.total %}perfect{% elif g.unlocked %}progress{% else %}untouched{% endif %}">
-              <td class="name">{{ g.name }}</td>
+              <td class="name"><a href="/game/{{ g.appid }}">{{ g.name }}</a>{% if review_scores[g.appid] %} <a class="rev" href="/game/{{ g.appid }}/review" title="Your review">★ {{ review_scores[g.appid] }}</a>{% endif %}</td>
               <td class="progress">
                 {% if g.total %}<div class="bar{% if g.unlocked == g.total %} done{% endif %}"><span style="width:{{ p }}%"></span></div>{% else %}<span class="muted small">No achievements</span>{% endif %}
               </td>
               <td class="num">{% if g.total %}{{ g.unlocked }}/{{ g.total }}{% else %}–{% endif %}</td>
               <td class="num">{% if g.total %}{{ g.total - g.unlocked }}{% else %}–{% endif %}</td>
               <td class="num">{{ g.playtime_hours }}</td>
+              <td class="num">{% if g.metacritic is not none %}{{ g.metacritic }}{% else %}–{% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+      <p class="empty" id="no-matches" hidden>No games match.</p>
     </div>
+    <nav class="pager" aria-label="Table pages">
+      <span class="muted small" id="page-info"></span>
+      <div class="pager-buttons">
+        <button type="button" id="prev">← Previous</button>
+        <label class="small">Page <select id="page-select" aria-label="Page"></select> of <span id="page-count"></span></label>
+        <button type="button" id="next">Next →</button>
+      </div>
+    </nav>
   {% else %}
     <div class="empty">
       <p>No cached data yet.</p>
@@ -259,39 +325,105 @@
   // Pick up a refresh that's already running (e.g. after a page reload)
   fetch("/status").then(r => r.json()).then(s => { if (s.running) { showStatus(s); poll(); } else if (s.error) showStatus(s); });
 
-  // ---- table search, filter and sort
+  // ---- shelf toggle: closest to 100% / perfect games (remembered per browser)
+  const shelfButtons = [...document.querySelectorAll(".seg button[data-shelf]")];
+  function showShelf(name) {
+    shelfButtons.forEach(b => b.setAttribute("aria-pressed", b.dataset.shelf === name));
+    document.querySelectorAll("section[data-shelf]").forEach(s => s.hidden = s.dataset.shelf !== name);
+    document.getElementById("shelf-title").textContent =
+      name === "perfect" ? "Perfect games" : "Closest to 100%";
+    try { localStorage.setItem("shelf", name); } catch (e) {}
+  }
+  if (shelfButtons.length) {
+    shelfButtons.forEach(b => b.onclick = () => showShelf(b.dataset.shelf));
+    let saved = null;
+    try { saved = localStorage.getItem("shelf"); } catch (e) {}
+    if (saved === "perfect") showShelf("perfect");
+  }
+
+  // ---- table search, filter, sort and pages
   const table = document.getElementById("games");
   if (table) {
+    const PAGE_SIZE = 40;
     const tbody = table.tBodies[0];
     const rows = [...tbody.rows];
     const search = document.getElementById("search");
     const filter = document.getElementById("filter");
+    const prev = document.getElementById("prev");
+    const next = document.getElementById("next");
+    const pageSelect = document.getElementById("page-select");
+    let page = 1;
 
-    function applyFilter() {
+    function matches(r) {
       const q = search.value.trim().toLowerCase();
       const f = filter.value;
-      rows.forEach(r => {
-        const st = r.dataset.state;
-        const okState = f === "all" || (f === "ach" ? st !== "none" : st === f);
-        r.hidden = !(okState && r.dataset.name.includes(q));
-      });
+      const st = r.dataset.state;
+      const okState = f === "all" || (f === "ach" ? st !== "none" : st === f);
+      return okState && r.dataset.name.includes(q);
     }
-    search.oninput = filter.onchange = applyFilter;
-    applyFilter();
+
+    // Show only the current page of matching rows, in their current sort order
+    function render() {
+      const shown = rows.filter(matches);
+      const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+      page = Math.min(Math.max(page, 1), pages);
+      const start = (page - 1) * PAGE_SIZE;
+      const onPage = new Set(shown.slice(start, start + PAGE_SIZE));
+      rows.forEach(r => r.hidden = !onPage.has(r));
+
+      document.getElementById("no-matches").hidden = shown.length > 0;
+      document.getElementById("page-info").textContent = shown.length
+        ? `Showing ${start + 1}–${start + onPage.size} of ${shown.length} games`
+        : "";
+      // Rebuild the page dropdown only when the number of pages changes
+      if (pageSelect.options.length !== pages) {
+        pageSelect.replaceChildren(...Array.from({ length: pages }, (_, i) => new Option(i + 1, i + 1)));
+      }
+      pageSelect.value = page;
+      pageSelect.disabled = pages === 1;
+      document.getElementById("page-count").textContent = pages;
+      prev.disabled = page === 1;
+      next.disabled = page === pages;
+    }
+
+    function goTo(p) {
+      page = p;
+      render();
+      // Jump back to the top of the table if it's scrolled out of view
+      const tools = document.querySelector(".table-tools");
+      if (tools.getBoundingClientRect().top < 0) tools.scrollIntoView();
+    }
+    prev.onclick = () => goTo(page - 1);
+    next.onclick = () => goTo(page + 1);
+    pageSelect.onchange = () => goTo(Number(pageSelect.value));
+
+    search.oninput = filter.onchange = () => { page = 1; render(); };
+
+    const sortSelect = document.getElementById("sort");
+
+    function sortBy(key, asc) {
+      table.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
+      table.querySelector(`th[data-key="${key}"]`).setAttribute("aria-sort", asc ? "ascending" : "descending");
+      // Header-only sorts (Unlocked, Left) have no matching option, so the dropdown goes blank
+      sortSelect.value = `${key}:${asc ? "asc" : "desc"}`;
+      const val = r => key === "name" ? r.dataset.name : parseFloat(r.dataset[key]);
+      rows.sort((a, b) => {
+        const x = val(a), y = val(b);
+        return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      page = 1;
+      render();
+    }
+
+    sortSelect.onchange = () => {
+      const [key, dir] = sortSelect.value.split(":");
+      sortBy(key, dir === "asc");
+    };
+    sortSelect.onchange();
 
     table.querySelectorAll("th[data-key]").forEach(th => {
-      th.onclick = () => {
-        const key = th.dataset.key;
-        const asc = th.getAttribute("aria-sort") !== "ascending";
-        table.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
-        th.setAttribute("aria-sort", asc ? "ascending" : "descending");
-        const val = r => key === "name" ? r.dataset.name : parseFloat(r.dataset[key]);
-        rows.sort((a, b) => {
-          const x = val(a), y = val(b);
-          return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
-        });
-        rows.forEach(r => tbody.appendChild(r));
-      };
+      th.onclick = () => sortBy(th.dataset.key, th.getAttribute("aria-sort") !== "ascending");
     });
   }
 </script>

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ name }} · Steam Achievements</title>
+<style>
+  :root {
+    /* Steam's colours: navy background, pale blue-grey text, light blue accent */
+    --bg: #1b2838; --surface: #16202d; --border: #2a3f5a;
+    --text: #c7d5e0; --muted: #8f98a0;
+    --accent: #66c0f4; --accent-soft: #1f3a52; --on-accent: #0e141b;
+    --gold: #e4b84f; --gold-soft: #2d2a1b; --track: #0e1720;
+    --good: #a4d007; --bad: #e06464; --danger: #e06464;
+    --glow: #2a475e;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; color: var(--text);
+    background: radial-gradient(ellipse 1400px 520px at 50% -160px, var(--glow), transparent) no-repeat, var(--bg);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .back { display: inline-block; font-size: 14px; text-decoration: none; margin-bottom: 16px; }
+  .back:hover { text-decoration: underline; }
+
+  button, .btn {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    text-decoration: none; display: inline-block;
+  }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 460px) 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+  .hero img { width: 100%; aspect-ratio: 460 / 215; object-fit: cover; border-radius: 12px; background: var(--track); display: block; }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; line-height: 1.2; }
+  .facts { font-size: 14px; color: var(--muted); }
+  .facts span + span::before { content: " · "; }
+  .desc { margin: 12px 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn.review { background: var(--gold-soft); border-color: var(--gold); }
+
+  .banner { margin-top: 20px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--danger); color: var(--danger); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 28px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { font-size: 13px; color: var(--muted); }
+  .tile .value { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile.wide { grid-column: span 2; }
+  @media (max-width: 520px) { .tile.wide { grid-column: auto; } }
+
+  .bar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .bar.done > span { background: var(--gold); }
+  .tile .bar { margin-top: 10px; }
+
+  h2 { font-size: 17px; margin: 36px 0 12px; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .tools input, .tools select {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  .tools input { flex: 1 1 200px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+  .list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .ach { display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .ach:last-child { border-bottom: 0; }
+  .ach img { width: 56px; height: 56px; border-radius: 6px; background: var(--track); display: block; }
+  .ach.locked img { opacity: .55; }
+  .ach.unlocked { background: linear-gradient(90deg, var(--gold-soft), transparent 60%); }
+  .ach .title { font-weight: 600; }
+  .ach .text { font-size: 14px; color: var(--muted); }
+  .spoiler { filter: blur(5px); cursor: pointer; user-select: none; transition: filter .15s; }
+  .spoiler.shown { filter: none; cursor: auto; user-select: auto; }
+  .tag { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
+  .side { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 120px; }
+  .side .when { color: var(--gold); font-weight: 600; }
+  .side .bar { width: 120px; margin: 4px 0 0 auto; height: 4px; }
+  @media (max-width: 520px) {
+    .ach { grid-template-columns: 44px 1fr; }
+    .ach img { width: 44px; height: 44px; }
+    .side { grid-column: 2; text-align: left; }
+    .side .bar { margin-left: 0; }
+  }
+  .empty { text-align: center; padding: 48px 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← All games</a>
+
+  <section class="hero">
+    <img alt="" src="{{ store.header_image or 'https://cdn.cloudflare.steamstatic.com/steam/apps/%s/header.jpg' % appid }}"
+         onerror="this.style.visibility='hidden'">
+    <div>
+      <h1>{{ name }}</h1>
+      <div class="facts">
+        {% if store.developers %}<span>{{ store.developers|join(", ") }}</span>{% endif %}
+        {% if store.release_date %}<span>{{ store.release_date }}</span>{% endif %}
+        {% if playtime_hours is not none %}<span>{{ playtime_hours }} h played</span>{% endif %}
+      </div>
+      {% if store.description %}<p class="desc">{{ store.description }}</p>{% endif %}
+      {% if store.genres %}
+        <div class="chips">{% for g in store.genres %}<span class="chip">{{ g }}</span>{% endfor %}</div>
+      {% endif %}
+      <div class="actions">
+        {% if review %}
+          <a class="btn review" href="/game/{{ appid }}/review">My review{% if review.score_text %} · <strong>{{ review.score_text }}</strong>/10{% endif %}</a>
+        {% else %}
+          <a class="btn" href="/game/{{ appid }}/review/edit">✎ Write a review</a>
+        {% endif %}
+        <a class="btn" href="https://store.steampowered.com/app/{{ appid }}" target="_blank" rel="noopener">Store page ↗</a>
+        <a class="btn" href="steam://run/{{ appid }}">Launch in Steam</a>
+        <a class="btn" href="?fresh=1" title="Fetch the latest from Steam">Reload</a>
+      </div>
+    </div>
+  </section>
+
+  {% if error %}
+    <div class="banner">Couldn't load achievements: {{ error }}</div>
+  {% endif %}
+
+  {% if detail %}
+    {% set achs = detail.achievements %}
+    {% if achs %}
+      {% set p = 100 * detail.unlocked / detail.total %}
+      {% set rated = achs|selectattr("global_pct", "ne", none)|list %}
+      {% set got = rated|selectattr("unlocked")|list %}
+      {% set todo = rated|rejectattr("unlocked")|list %}
+      <section class="tiles">
+        <div class="tile wide">
+          <div class="label">Your progress</div>
+          <div class="value">{{ "%.0f"|format(p) }}%</div>
+          <div class="sub">{{ detail.unlocked }} of {{ detail.total }} unlocked · {{ detail.total - detail.unlocked }} to go</div>
+          <div class="bar{% if detail.unlocked == detail.total %} done{% endif %}"><span style="width:{{ p }}%"></span></div>
+        </div>
+        {% if got %}
+          {% set r = got|sort(attribute="global_pct")|first %}
+          <div class="tile">
+            <div class="label">Rarest you have</div>
+            <div class="value">{{ "%.1f"|format(r.global_pct) }}%</div>
+            <div class="sub" title="{{ r.name }}">{{ r.name }}</div>
+          </div>
+        {% endif %}
+        {% if todo %}
+          {% set e = todo|sort(attribute="global_pct", reverse=true)|first %}
+          <div class="tile">
+            <div class="label">Easiest left</div>
+            <div class="value">{{ "%.1f"|format(e.global_pct) }}%</div>
+            <div class="sub" title="{{ e.name }}">{{ e.name }}</div>
+          </div>
+        {% endif %}
+      </section>
+
+      <h2>Achievements</h2>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Show">
+          <button data-show="all" aria-pressed="true">All {{ detail.total }}</button>
+          <button data-show="locked" aria-pressed="false">Locked {{ detail.total - detail.unlocked }}</button>
+          <button data-show="unlocked" aria-pressed="false">Unlocked {{ detail.unlocked }}</button>
+        </div>
+        <input id="search" type="search" placeholder="Search achievements…" aria-label="Search achievements">
+        <select id="sort" aria-label="Sort achievements">
+          <option value="easiest">Easiest locked first</option>
+          <option value="rarest">Rarest first</option>
+          <option value="recent">Recently unlocked</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+
+      <div class="list" id="achs">
+        {% for a in achs %}
+          <div class="ach {{ 'unlocked' if a.unlocked else 'locked' }}"
+               data-state="{{ 'unlocked' if a.unlocked else 'locked' }}"
+               data-name="{{ a.name|lower }}" data-text="{{ a.description|lower }}"
+               data-pct="{{ a.global_pct if a.global_pct is not none else -1 }}"
+               data-time="{{ a.unlocktime }}">
+            {% if a.icon %}<img loading="lazy" alt="" src="{{ a.icon }}" onerror="this.removeAttribute('src')">{% else %}<img alt="">{% endif %}
+            <div>
+              <div class="title">{{ a.name }}{% if a.hidden %}<span class="tag">Hidden</span>{% endif %}</div>
+              {% if a.description %}
+                <div class="text{% if a.hidden and not a.unlocked %} spoiler{% endif %}"
+                     {% if a.hidden and not a.unlocked %}title="Click to reveal"{% endif %}>{{ a.description }}</div>
+              {% elif a.hidden %}
+                <div class="text">Details hidden until unlocked</div>
+              {% endif %}
+            </div>
+            <div class="side">
+              {% if a.unlocked %}
+                <div class="when">{% if a.unlocktime %}<time data-ts="{{ a.unlocktime }}"></time>{% else %}Unlocked{% endif %}</div>
+              {% else %}
+                <div class="muted">Locked</div>
+              {% endif %}
+              {% if a.global_pct is not none %}
+                <div class="muted">{{ "%.1f"|format(a.global_pct) }}% of players</div>
+                <div class="bar"><span style="width:{{ a.global_pct }}%"></span></div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="empty muted" id="none" hidden>No achievements match.</p>
+    {% else %}
+      <div class="empty muted">This game has no achievements.</div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<script>
+  document.querySelectorAll("time[data-ts]").forEach(t => {
+    const d = new Date(t.dataset.ts * 1000);
+    t.textContent = d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    t.dateTime = d.toISOString();
+    t.title = d.toLocaleString();
+  });
+
+  // Hidden achievements: blurred until clicked
+  document.querySelectorAll(".spoiler").forEach(el => el.onclick = () => el.classList.add("shown"));
+
+  const list = document.getElementById("achs");
+  if (list) {
+    const items = [...list.children];
+    const search = document.getElementById("search");
+    const sort = document.getElementById("sort");
+    const segs = [...document.querySelectorAll(".seg button")];
+    let show = "all";
+
+    const num = (el, k) => parseFloat(el.dataset[k]);
+    const sorters = {
+      // Locked first, most-commonly-unlocked first; then unlocked, newest first.
+      easiest: (a, b) => (a.dataset.state === "unlocked") - (b.dataset.state === "unlocked")
+        || (a.dataset.state === "locked" ? num(b, "pct") - num(a, "pct") : num(b, "time") - num(a, "time")),
+      rarest: (a, b) => (num(a, "pct") < 0) - (num(b, "pct") < 0) || num(a, "pct") - num(b, "pct"),
+      recent: (a, b) => num(b, "time") - num(a, "time"),
+      name: (a, b) => a.dataset.name.localeCompare(b.dataset.name),
+    };
+
+    function apply() {
+      const q = search.value.trim().toLowerCase();
+      items.sort(sorters[sort.value]).forEach(el => list.appendChild(el));
+      let visible = 0;
+      items.forEach(el => {
+        const ok = (show === "all" || el.dataset.state === show)
+          && (el.dataset.name.includes(q) || el.dataset.text.includes(q));
+        el.hidden = !ok;
+        visible += ok;
+      });
+      list.hidden = !visible;
+      document.getElementById("none").hidden = !!visible;
+    }
+
+    segs.forEach(b => b.onclick = () => {
+      show = b.dataset.show;
+      segs.forEach(x => x.setAttribute("aria-pressed", x === b));
+      apply();
+    });
+    search.oninput = sort.onchange = apply;
+    apply();
+  }
+</script>
+</body>
+</html>

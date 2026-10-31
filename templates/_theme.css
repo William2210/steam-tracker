@@ -1,0 +1,46 @@
+  /* Shared colours and basics, included at the top of each page's <style> */
+  :root {
+    /* Steam's colours: navy background, pale blue-grey text, light blue accent */
+    --bg: #1b2838; --surface: #16202d; --border: #2a3f5a;
+    --text: #c7d5e0; --muted: #8f98a0;
+    --accent: #66c0f4; --accent-soft: #1f3a52; --on-accent: #0e141b;
+    --gold: #e4b84f; --gold-soft: #2d2a1b; --track: #0e1720;
+    --good: #a4d007; --bad: #e06464; --danger: #e06464;
+    --glow: #2a475e;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; color: var(--text);
+    background: radial-gradient(ellipse 1400px 520px at 50% -160px, var(--glow), transparent) no-repeat, var(--bg);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .crumbs { font-size: 14px; margin-bottom: 16px; color: var(--muted); }
+  .crumbs a { text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  button, .btn {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    text-decoration: none; display: inline-block;
+  }
+  button.primary, .btn.primary { background: linear-gradient(to right, #47bfff 5%, #1a44c2 60%); border-color: transparent; color: #fff; }
+  button.primary, .btn.primary:hover { filter: brightness(1.15); }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  /* Score ring, coloured by IGN-style tier */
+  .ring {
+    --c: var(--muted);
+    width: 92px; height: 92px; border-radius: 50%; flex: none;
+    border: 6px solid var(--c); display: grid; place-items: center;
+    font-size: 34px; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .ring.t-top { --c: var(--gold); }
+  .ring.t-good { --c: var(--good); }
+  .ring.t-mid { --c: #d08a1c; }
+  .ring.t-low { --c: var(--bad); }

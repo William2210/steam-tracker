@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ "Write" if is_new else "Edit" }} review · {{ name }}</title>
+<style>
+{% include "_theme.css" %}
+  .wrap { max-width: 860px; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px 16px; margin-top: 24px; }
+  .f { display: flex; flex-direction: column; gap: 5px; grid-column: span 6; }
+  .f.half { grid-column: span 3; }
+  .f.third { grid-column: span 2; }
+  @media (max-width: 640px) { .f.half, .f.third { grid-column: span 6; } }
+  label { font-size: 13px; font-weight: 600; }
+  label .muted { font-weight: 400; }
+  input, textarea, select {
+    font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 8px; width: 100%;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  textarea { resize: vertical; line-height: 1.55; }
+  #title { font-size: 20px; font-weight: 650; }
+
+  .score-row { display: flex; gap: 14px; align-items: center; }
+  .score-row input { width: 90px; }
+  .score-row .ring { width: 56px; height: 56px; font-size: 20px; border-width: 4px; }
+  #label { font-weight: 650; }
+
+  .editor { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .toolbar { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 6px; border-bottom: 1px solid var(--border); }
+  .toolbar button { padding: 4px 10px; font-size: 13px; border-color: transparent; background: transparent; }
+  .toolbar button:hover { border-color: var(--border); }
+  .toolbar .tabs { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toolbar .tabs button { border-radius: 0; border: 0; }
+  .toolbar .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .editor textarea { border: 0; border-radius: 0; min-height: 420px; font-size: 16px; }
+  .editor textarea:focus { outline: none; }
+  #preview { padding: 16px 20px; min-height: 420px; font-size: 17px; line-height: 1.7; }
+  #preview img { max-width: 100%; border-radius: 8px; }
+  #preview blockquote { margin: 16px 0; padding-left: 16px; border-left: 4px solid var(--accent); color: var(--muted); font-style: italic; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .hint code { font-size: 12px; background: var(--track); padding: 0 4px; border-radius: 4px; }
+
+  .bar-actions {
+    position: sticky; bottom: 0; margin-top: 24px; padding: 12px 0;
+    display: flex; gap: 8px; align-items: center; background: var(--bg); border-top: 1px solid var(--border);
+  }
+  .bar-actions .spacer { flex: 1; }
+  #msg { font-size: 13px; }
+  #msg.err { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="crumbs"><a href="/">All games</a> › <a href="/game/{{ appid }}">{{ name }}</a> › <a href="/game/{{ appid }}/review">Review</a> › {{ "Write" if is_new else "Edit" }}</nav>
+  <h1>{{ "Write a review" if is_new else "Edit review" }}: {{ name }}</h1>
+  <div class="muted small">
+    Saved to <code>reviews/{{ appid }}.md</code>.
+    {% if is_new %}Your hours played and achievement % are recorded with it the first time you save.{% endif %}
+  </div>
+
+  <form id="form" class="grid" autocomplete="off">
+    <div class="f">
+      <label for="title">Headline</label>
+      <input id="title" name="title" value="{{ review.title or '' }}" required>
+    </div>
+    <div class="f">
+      <label for="subtitle">Subtitle <span class="muted">· one line under the headline</span></label>
+      <input id="subtitle" name="subtitle" value="{{ review.subtitle or '' }}" placeholder="e.g. A time-bending puzzler that still holds up">
+    </div>
+
+    <div class="f third">
+      <label for="score">Score <span class="muted">· 1–10, halves allowed</span></label>
+      <div class="score-row">
+        <input id="score" name="score" type="number" min="1" max="10" step="0.5" value="{{ review.score_text or '' }}" required>
+        <div class="ring" id="ring">–</div>
+        <span id="label" class="muted"></span>
+      </div>
+    </div>
+    <div class="f third">
+      <label for="platform">Platform</label>
+      <input id="platform" name="platform" value="{{ review.platform or '' }}" placeholder="PC, Steam Deck…">
+    </div>
+    <div class="f third">
+      <label for="reviewed">Date reviewed</label>
+      <input id="reviewed" name="reviewed" type="date" value="{{ review.reviewed or '' }}">
+    </div>
+
+    <div class="f half">
+      <label for="pros">The Good <span class="muted">· one per line</span></label>
+      <textarea id="pros" name="pros" rows="5" placeholder="Inventive puzzles&#10;Gorgeous painted art">{{ review.pros|join("\n") }}</textarea>
+    </div>
+    <div class="f half">
+      <label for="cons">The Bad <span class="muted">· one per line</span></label>
+      <textarea id="cons" name="cons" rows="5" placeholder="Story is deliberately opaque">{{ review.cons|join("\n") }}</textarea>
+    </div>
+
+    <div class="f">
+      <label for="verdict">Verdict <span class="muted">· a short paragraph shown next to the score</span></label>
+      <textarea id="verdict" name="verdict" rows="3">{{ review.verdict or '' }}</textarea>
+    </div>
+
+    <div class="f">
+      <label for="body">Review</label>
+      <div class="editor">
+        <div class="toolbar">
+          <button type="button" data-wrap="## |" title="Section heading">Heading</button>
+          <button type="button" data-wrap="**|**" title="Bold (Ctrl+B)"><b>B</b></button>
+          <button type="button" data-wrap="*|*" title="Italic (Ctrl+I)"><i>I</i></button>
+          <button type="button" data-wrap="> |" title="Pull quote">Quote</button>
+          <button type="button" id="img-btn" title="Upload a screenshot">Image…</button>
+          <input type="file" id="img-file" accept="image/*" hidden>
+          <span class="tabs">
+            <button type="button" data-tab="write" aria-pressed="true">Write</button>
+            <button type="button" data-tab="preview" aria-pressed="false">Preview</button>
+          </span>
+        </div>
+        <textarea id="body" name="body" placeholder="Write your review here…">{{ review.body or '' }}</textarea>
+        <div id="preview" hidden></div>
+      </div>
+      <div class="hint">
+        Markdown: <code>## Heading</code> <code>**bold**</code> <code>*italic*</code> <code>&gt; quote</code>
+        · leave a blank line between paragraphs · drag or paste screenshots straight into the text.
+      </div>
+    </div>
+  </form>
+
+  <div class="bar-actions">
+    <button class="primary" id="save" title="Ctrl+S">Save review</button>
+    <a class="btn" href="/game/{{ appid }}{{ '/review' if not is_new }}">Cancel</a>
+    <span id="msg"></span>
+    <span class="spacer"></span>
+    {% if not is_new %}<button class="danger" id="delete">Delete review</button>{% endif %}
+  </div>
+</div>
+
+<script>
+  const APPID = {{ appid }};
+  const VERDICTS = {{ verdicts|tojson }};
+  const form = document.getElementById("form");
+  const body = document.getElementById("body");
+  const msg = document.getElementById("msg");
+  let dirty = false;
+
+  function say(text, err) { msg.textContent = text; msg.className = err ? "err" : "muted"; }
+
+  // ---- live score ring
+  const score = document.getElementById("score");
+  function updateScore() {
+    const s = parseFloat(score.value);
+    const ring = document.getElementById("ring");
+    const ok = s >= 1 && s <= 10;
+    ring.textContent = ok ? s : "–";
+    ring.className = "ring " + (!ok ? "" : s >= 9 ? "t-top" : s >= 7 ? "t-good" : s >= 5 ? "t-mid" : "t-low");
+    document.getElementById("label").textContent = ok ? VERDICTS[Math.floor(s)] : "";
+  }
+  score.oninput = updateScore;
+  updateScore();
+
+  // ---- formatting buttons: wrap the selection, "|" marks where it goes
+  function insert(before, after = "") {
+    const { selectionStart: a, selectionEnd: b, value } = body;
+    const sel = value.slice(a, b);
+    body.setRangeText(before + sel + after, a, b, "end");
+    if (!sel) body.selectionStart = body.selectionEnd = a + before.length;
+    body.focus();
+    dirty = true;
+  }
+  document.querySelectorAll("[data-wrap]").forEach(btn => btn.onclick = () => {
+    const [before, after] = btn.dataset.wrap.split("|");
+    // Line-level formats go at the start of a line.
+    const atLineStart = body.selectionStart === 0 || body.value[body.selectionStart - 1] === "\n";
+    insert((!after && !atLineStart ? "\n\n" : "") + before, after);
+  });
+
+  // ---- screenshots: button, drag-and-drop, or paste
+  async function upload(file) {
+    say(`Uploading ${file.name}…`);
+    const r = await fetch(`/game/${APPID}/review/image?name=${encodeURIComponent(file.name || "pasted.png")}`,
+                          { method: "POST", body: file });
+    const j = await r.json();
+    if (!r.ok) return say(j.error || "Upload failed", true);
+    const alt = (file.name || "screenshot").replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+    insert(`\n\n![${alt}](${j.url})\n\n`);
+    say("Image added");
+  }
+  const fileInput = document.getElementById("img-file");
+  document.getElementById("img-btn").onclick = () => fileInput.click();
+  fileInput.onchange = () => { if (fileInput.files[0]) upload(fileInput.files[0]); fileInput.value = ""; };
+  body.addEventListener("dragover", e => e.preventDefault());
+  body.addEventListener("drop", e => {
+    const f = [...e.dataTransfer.files].find(f => f.type.startsWith("image/"));
+    if (f) { e.preventDefault(); upload(f); }
+  });
+  body.addEventListener("paste", e => {
+    const f = [...e.clipboardData.files].find(f => f.type.startsWith("image/"));
+    if (f) { e.preventDefault(); upload(f); }
+  });
+
+  // ---- write / preview tabs
+  const preview = document.getElementById("preview");
+  document.querySelectorAll("[data-tab]").forEach(btn => btn.onclick = async () => {
+    const showPreview = btn.dataset.tab === "preview";
+    document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    if (showPreview) {
+      const r = await fetch("/review/preview", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                 body: JSON.stringify({ body: body.value }) });
+      preview.innerHTML = (await r.json()).html || "<p class='muted'>Nothing to preview yet.</p>";
+    }
+    preview.hidden = !showPreview;
+    body.hidden = showPreview;
+  });
+
+  // ---- save / delete
+  async function save() {
+    if (!form.reportValidity()) return;
+    const lines = id => document.getElementById(id).value.split("\n").map(s => s.trim()).filter(Boolean);
+    const data = Object.fromEntries(new FormData(form));
+    data.pros = lines("pros");
+    data.cons = lines("cons");
+    say("Saving…");
+    const r = await fetch(`/game/${APPID}/review`, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const j = await r.json();
+    if (!r.ok) return say(j.error || "Save failed", true);
+    dirty = false;
+    location.href = j.url;
+  }
+  document.getElementById("save").onclick = save;
+
+  const del = document.getElementById("delete");
+  if (del) del.onclick = async () => {
+    if (!confirm("Delete this review? This removes reviews/" + APPID + ".md.")) return;
+    const j = await (await fetch(`/game/${APPID}/review`, { method: "DELETE" })).json();
+    dirty = false;
+    location.href = j.url;
+  };
+
+  // ---- shortcuts and an unsaved-changes guard
+  form.addEventListener("input", () => dirty = true);
+  document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") { e.preventDefault(); save(); }
+    if (document.activeElement === body && (k === "b" || k === "i")) {
+      e.preventDefault();
+      k === "b" ? insert("**", "**") : insert("*", "*");
+    }
+  });
+  window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
+</script>
+</body>
+</html>

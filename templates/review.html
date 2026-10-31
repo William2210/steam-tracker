@@ -1,0 +1,152 @@
+{%- macro tier(s) -%}
+  {%- if s is none -%}{%- elif s >= 9 -%}t-top{%- elif s >= 7 -%}t-good{%- elif s >= 5 -%}t-mid{%- else -%}t-low{%- endif -%}
+{%- endmacro -%}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ review.title if review else name ~ " Review" }}</title>
+<style>
+{% include "_theme.css" %}
+  .hero {
+    position: relative; border-radius: 16px; overflow: hidden; min-height: 340px;
+    display: flex; align-items: flex-end; background: #11141a center / cover no-repeat;
+    color: #fff;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(8,10,14,.05) 0%, rgba(8,10,14,.55) 45%, rgba(8,10,14,.92) 100%);
+  }
+  .hero-inner { position: relative; z-index: 1; padding: 28px 32px; display: flex; gap: 24px; align-items: flex-end; width: 100%; }
+  .hero-text { flex: 1; min-width: 0; }
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+  .hero h1 { margin: 6px 0 8px; font-size: clamp(28px, 4.5vw, 44px); line-height: 1.08; letter-spacing: -0.02em; }
+  .hero .subtitle { font-size: 18px; opacity: .9; margin: 0 0 14px; max-width: 640px; }
+  .byline { font-size: 13px; opacity: .8; }
+  .byline span + span::before { content: " · "; }
+  .hero .ring { background: rgba(8,10,14,.55); color: #fff; }
+  @media (max-width: 600px) {
+    .hero-inner { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .hero .ring { width: 72px; height: 72px; font-size: 26px; border-width: 5px; }
+  }
+
+  article {
+    max-width: 700px; margin: 40px auto 0;
+    font-size: 18px; line-height: 1.7;
+  }
+  article > :first-child { margin-top: 0; }
+  article h2 { font-size: 24px; line-height: 1.25; margin: 40px 0 12px; letter-spacing: -0.01em; }
+  article h3 { font-size: 19px; margin: 28px 0 8px; }
+  article p { margin: 0 0 20px; }
+  article img { display: block; max-width: 100%; height: auto; border-radius: 10px; margin: 28px auto; }
+  article blockquote {
+    margin: 28px 0; padding: 4px 0 4px 20px; border-left: 4px solid var(--accent);
+    font-size: 21px; line-height: 1.5; font-style: italic; color: var(--muted);
+  }
+  article hr { border: 0; border-top: 1px solid var(--border); margin: 36px 0; }
+  article table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 20px; }
+  article th, article td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+
+  .verdict {
+    max-width: 700px; margin: 48px auto 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+  }
+  .verdict-head { display: flex; gap: 20px; align-items: center; padding: 24px; }
+  .verdict-head .label { font-size: 22px; font-weight: 700; }
+  .verdict-head h2 { margin: 0 0 6px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .verdict-head p { margin: 6px 0 0; font-size: 16px; line-height: 1.6; }
+  .proscons { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+  .proscons > div { padding: 18px 24px; }
+  .proscons > div + div { border-left: 1px solid var(--border); }
+  .proscons h3 { margin: 0 0 8px; font-size: 14px; }
+  .proscons ul { margin: 0; padding: 0; list-style: none; font-size: 15px; }
+  .proscons li { padding: 3px 0 3px 22px; position: relative; }
+  .proscons li::before { position: absolute; left: 0; font-weight: 800; }
+  .pros h3, .pros li::before { color: var(--good); }
+  .pros li::before { content: "+"; }
+  .cons h3, .cons li::before { color: var(--bad); }
+  .cons li::before { content: "−"; }
+  @media (max-width: 600px) {
+    .verdict-head { flex-direction: column; align-items: flex-start; }
+    .proscons { grid-template-columns: 1fr; }
+    .proscons > div + div { border-left: 0; border-top: 1px solid var(--border); }
+  }
+  .snapshot { max-width: 700px; margin: 14px auto 0; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  .empty { text-align: center; padding: 72px 16px; }
+  .empty h1 { font-size: 24px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="crumbs"><a href="/">All games</a> › <a href="/game/{{ appid }}">{{ name }}</a> › Review</nav>
+
+  {% if review %}
+    <header class="hero" id="hero"
+            data-fallback="https://cdn.cloudflare.steamstatic.com/steam/apps/{{ appid }}/header.jpg"
+            style="background-image:url('https://cdn.cloudflare.steamstatic.com/steam/apps/{{ appid }}/library_hero.jpg')">
+      <div class="hero-inner">
+        <div class="hero-text">
+          <div class="kicker">Review</div>
+          <h1>{{ review.title }}</h1>
+          {% if review.subtitle %}<p class="subtitle">{{ review.subtitle }}</p>{% endif %}
+          <div class="byline">
+            {% if review.reviewed %}<span>Reviewed <time data-date="{{ review.reviewed }}">{{ review.reviewed }}</time></span>{% endif %}
+            {% if review.platform %}<span>{{ review.platform }}</span>{% endif %}
+            {% if review.hours is not none %}<span>{{ "%g"|format(review.hours) }} h played</span>{% endif %}
+          </div>
+        </div>
+        {% if review.score is not none %}<div class="ring {{ tier(review.score) }}" title="{{ review.label }}">{{ review.score_text }}</div>{% endif %}
+      </div>
+    </header>
+
+    {% if review.html %}<article>{{ review.html|safe }}</article>{% endif %}
+
+    <section class="verdict">
+      <div class="verdict-head">
+        {% if review.score is not none %}<div class="ring {{ tier(review.score) }}">{{ review.score_text }}</div>{% endif %}
+        <div>
+          <h2>Verdict</h2>
+          {% if review.label %}<div class="label">{{ review.label }}</div>{% endif %}
+          {% if review.verdict %}<p>{{ review.verdict }}</p>{% endif %}
+        </div>
+      </div>
+      {% if review.pros or review.cons %}
+        <div class="proscons">
+          <div class="pros"><h3>The Good</h3><ul>{% for p in review.pros %}<li>{{ p }}</li>{% endfor %}</ul></div>
+          <div class="cons"><h3>The Bad</h3><ul>{% for c in review.cons %}<li>{{ c }}</li>{% endfor %}</ul></div>
+        </div>
+      {% endif %}
+    </section>
+
+    <div class="snapshot muted">
+      <span>
+        {% if review.completion is not none %}Written at {{ "%g"|format(review.completion) }}% achievement completion{% endif %}
+      </span>
+      <a class="btn" href="/game/{{ appid }}/review/edit">Edit review</a>
+    </div>
+  {% else %}
+    <div class="empty">
+      <h1>No review for {{ name }} yet</h1>
+      <p class="muted">Beaten it? Write up your thoughts, IGN-style: a score, a verdict, the good and the bad.</p>
+      <p><a class="btn primary" href="/game/{{ appid }}/review/edit">Write a review</a></p>
+    </div>
+  {% endif %}
+</div>
+<script>
+  // Some games have no wide "library hero" art; fall back to the store header.
+  const hero = document.getElementById("hero");
+  if (hero) {
+    const url = hero.style.backgroundImage.slice(5, -2);
+    const probe = new Image();
+    probe.onerror = () => hero.style.backgroundImage = `url('${hero.dataset.fallback}')`;
+    probe.src = url;
+  }
+  document.querySelectorAll("time[data-date]").forEach(t => {
+    const d = new Date(t.dataset.date + "T00:00:00");
+    if (!isNaN(d)) t.textContent = d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  });
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 
 # Personal achievement data, rebuilt by running the tracker
 cache.json
+metacritic.json
 
 # Python
 .venv/
