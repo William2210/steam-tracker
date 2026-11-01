@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ platform.name }} {{ platform.unit }} · Achievement Tracker</title>
+<style>
+{% include "_theme.css" %}
+  /* Placeholder page shared by platforms that aren't wired up yet */
+  :root { --glow: #26323f; }
+  .xbox { --accent: #5dc21e; }
+  .playstation { --accent: #5b8cff; }
+  h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.01em; }
+  .panel { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 14px; padding: 20px 22px; max-width: 640px; }
+  .panel h2 { margin: 0 0 8px; font-size: 16px; }
+  .panel ul { margin: 0; padding-left: 20px; }
+  .panel li + li { margin-top: 4px; }
+</style>
+</head>
+<body class="{{ key }}">
+<div class="wrap">
+  <nav class="crumbs"><a href="/">Home</a> › {{ platform.name }}</nav>
+  <h1>{{ platform.name }} {{ platform.unit }}</h1>
+  <p class="muted">
+    {% if platform.status == "stretch" %}This is a stretch goal. Nothing is connected yet.
+    {% else %}Coming soon. Nothing is connected yet.{% endif %}
+  </p>
+
+  <section class="panel">
+    <h2>Planned</h2>
+    <ul>{% for item in platform.plan %}<li>{{ item }}</li>{% endfor %}</ul>
+  </section>
+</div>
+</body>
+</html>

@@ -1,7 +1,10 @@
 """
-Steam Achievement Tracker - web dashboard
+Achievement Tracker - web dashboard
 
-Serves the same numbers as steam_tracker.py as a web page. The page reads
+The home page at / links to one section per platform: Steam, Xbox and
+PlayStation. Only Steam is built so far; the others show a placeholder.
+
+/steam serves the same numbers as steam_tracker.py as a web page. The page reads
 straight from cache.json, so it loads instantly; refreshing from Steam runs
 in the background while the page shows progress.
 
@@ -12,7 +15,8 @@ From there, /game/<appid>/review shows your own IGN-style review, written in
 the editor at /game/<appid>/review/edit and saved to reviews/<appid>.md.
 
 Run:   uvicorn app:app --reload
-Open:  http://localhost:8000
+Open:  http://localhost:8000          (home)
+       http://localhost:8000/steam    (Steam dashboard)
 """
 
 import datetime
@@ -29,7 +33,7 @@ from fastapi.templating import Jinja2Templates
 import reviews as rv
 import steam_tracker as st
 
-app = FastAPI(title="Steam Achievement Tracker")
+app = FastAPI(title="Achievement Tracker")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Screenshots uploaded from the review editor.
@@ -56,15 +60,51 @@ def run_refresh(full):
         refresh_lock.release()
 
 
-# ---------------------------------------------------------------- routes
+# ---------------------------------------------------------------- home
+
+# The platforms shown on the home page. Only Steam is wired up so far; the
+# others get a placeholder page until their APIs are added.
+PLATFORMS = {
+    "steam": {"name": "Steam", "unit": "Achievements", "status": "live"},
+    "xbox": {"name": "Xbox", "unit": "Achievements", "status": "planned",
+             "plan": ["Sign in with a Microsoft account (or an OpenXBL API key)",
+                      "Pull your Xbox and PC Game Pass titles and their achievements",
+                      "Show Gamerscore alongside completion"]},
+    "playstation": {"name": "PlayStation", "unit": "Trophies", "status": "stretch",
+                    "plan": ["Authenticate with a PSN NPSSO token",
+                             "Pull your trophy titles and earned trophies",
+                             "Show bronze, silver, gold and platinum counts"]},
+}
+
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def home(request: Request):
+    games = list(st.load_cache().values())
+    return templates.TemplateResponse(request, "home.html", {
+        "platforms": PLATFORMS,
+        "steam": st.summarize(games) if games else None,
+        "steam_configured": bool(st.API_KEY and st.STEAM_ID),
+    })
+
+
+@app.get("/xbox", response_class=HTMLResponse)
+@app.get("/playstation", response_class=HTMLResponse)
+def coming_soon(request: Request):
+    key = request.url.path.strip("/")
+    return templates.TemplateResponse(request, "coming_soon.html", {
+        "key": key, "platform": PLATFORMS[key],
+    })
+
+
+# ---------------------------------------------------------------- steam
+
+@app.get("/steam", response_class=HTMLResponse)
+def steam(request: Request):
     # Cache keys are appids; keep them so the page can show game artwork.
     scores = st.load_metacritic()
     games = [{**g, "appid": appid, "metacritic": scores.get(appid)}
              for appid, g in st.load_cache().items()]
-    return templates.TemplateResponse(request, "index.html", {
+    return templates.TemplateResponse(request, "steam.html", {
         "games": sorted(games, key=lambda g: g["name"].lower()),
         "summary": st.summarize(games) if games else None,
         "updated_at": max((g["fetched_at"] for g in games), default=None),

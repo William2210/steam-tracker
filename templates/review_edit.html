@@ -54,7 +54,7 @@
 </head>
 <body>
 <div class="wrap">
-  <nav class="crumbs"><a href="/">All games</a> › <a href="/game/{{ appid }}">{{ name }}</a> › <a href="/game/{{ appid }}/review">Review</a> › {{ "Write" if is_new else "Edit" }}</nav>
+  <nav class="crumbs"><a href="/steam">All games</a> › <a href="/game/{{ appid }}">{{ name }}</a> › <a href="/game/{{ appid }}/review">Review</a> › {{ "Write" if is_new else "Edit" }}</nav>
   <h1>{{ "Write a review" if is_new else "Edit review" }}: {{ name }}</h1>
   <div class="muted small">
     Saved to <code>reviews/{{ appid }}.md</code>.

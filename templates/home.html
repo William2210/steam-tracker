@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Achievement Tracker</title>
+<style>
+{% include "_theme.css" %}
+  :root {
+    /* One accent per platform, bright enough to read on the dark background */
+    --steam: #66c0f4; --xbox: #5dc21e; --playstation: #5b8cff;
+    --glow: #26323f;
+  }
+  .wrap { padding-top: 56px; }
+  header { margin-bottom: 32px; }
+  h1 { margin: 0; font-size: 30px; letter-spacing: -0.015em; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+
+  .platforms { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .platform {
+    --c: var(--accent);
+    position: relative; display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 22px 20px; color: inherit; text-decoration: none; overflow: hidden;
+    transition: border-color .15s, transform .15s;
+  }
+  .platform::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--c); }
+  .platform:hover { border-color: var(--c); transform: translateY(-2px); }
+  .platform:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+  .platform.steam { --c: var(--steam); }
+  .platform.xbox { --c: var(--xbox); }
+  .platform.playstation { --c: var(--playstation); }
+
+  .platform .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .platform h2 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  .platform .unit { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .badge {
+    font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.live { border-color: var(--c); color: var(--c); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 20px 0 18px; }
+  .stats .value { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stats .label { font-size: 13px; color: var(--muted); }
+  .note { margin: 20px 0 18px; color: var(--muted); font-size: 14px; }
+  .go { margin-top: auto; font-size: 14px; font-weight: 600; color: var(--c); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Achievement Tracker</h1>
+    <p>Pick a platform to see your progress.</p>
+  </header>
+
+  <nav class="platforms" aria-label="Platforms">
+    {% for key, p in platforms.items() %}
+      <a class="platform {{ key }}" href="/{{ key }}">
+        <div class="top">
+          <div>
+            <h2>{{ p.name }}</h2>
+            <div class="unit">{{ p.unit }}</div>
+          </div>
+          {% if p.status == "live" %}<span class="badge live">Live</span>
+          {% elif p.status == "planned" %}<span class="badge">Coming soon</span>
+          {% else %}<span class="badge">Stretch goal</span>{% endif %}
+        </div>
+
+        {% if key == "steam" and steam %}
+          <div class="stats">
+            <div><div class="value">{{ "{:,}".format(steam.total_unlocked) }}</div><div class="label">achievements unlocked</div></div>
+            <div><div class="value">{{ "%.1f"|format(steam.steam_avg) }}%</div><div class="label">average completion</div></div>
+            <div><div class="value">{{ steam.perfect }}</div><div class="label">perfect games</div></div>
+            <div><div class="value">{{ "{:,}".format(steam.owned) }}</div><div class="label">games owned</div></div>
+          </div>
+        {% elif key == "steam" %}
+          <p class="note">{% if steam_configured %}No data yet. Open the dashboard and press Update.{% else %}Add STEAM_API_KEY and STEAM_ID to .env to get started.{% endif %}</p>
+        {% else %}
+          <p class="note">Not connected yet. See what's planned.</p>
+        {% endif %}
+
+        <span class="go">{{ "Open dashboard" if p.status == "live" else "View plans" }} →</span>
+      </a>
+    {% endfor %}
+  </nav>
+</div>
+</body>
+</html>
